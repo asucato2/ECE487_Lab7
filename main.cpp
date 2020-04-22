@@ -91,9 +91,10 @@ std::vector<MemoryOperation> readOperationsFile(const std::string& filename)
     std::vector<MemoryOperation> operations;
     std::string buf;
 
+    // get line with count
     std::getline(inFile, buf);
-    std::cout << "\nFile has " << buf << " operations\n" << std::endl;
 
+    // trash blank line, then read
     std::getline(inFile, buf);
     while (std::getline(inFile, buf))
     {
@@ -138,6 +139,7 @@ SimulatorOutput simulate(std::vector<MemoryOperation> operations,
 {
   std::vector<CacheBlock> cache;
 
+  // Calculate cache parameters
   const int cacheBlocks = cacheSize_bytes / blockSize_bytes;
   const int totalAddressBits = std::log2(mainMemorySize_bytes);
   const int offsetBits = std::log2(blockSize_bytes);
@@ -145,24 +147,30 @@ SimulatorOutput simulate(std::vector<MemoryOperation> operations,
   const int tagBits = totalAddressBits - offsetBits - indexBits;
   const int totalCacheSize_bytes = ((cacheSize_bytes * 8) + (tagBits * cacheBlocks) + (2 * cacheBlocks)) / 8;
 
+  // resize cache vector to be size cacheBlocks
   cache.resize(cacheBlocks);
 
+  // loop through the operations, keeping track of order
   int t = 0;
   for (auto& operation : operations)
   {
+    // calculate main mem block, cm set, and tag
     operation.mainMemoryBlock = operation.address / blockSize_bytes;
     operation.cacheMemorySet = operation.mainMemoryBlock % (cacheBlocks / setAssociativityDegree);
     const unsigned int
         tag = (operation.address >> (offsetBits + indexBits)) & static_cast<unsigned int>(std::pow(2, tagBits) - 1);
 
+    // simulate in cm what happens
     bool done = false;
     int offset = 0;
+    // loop to check whole cache set
     while (!done && offset < setAssociativityDegree)
     {
       auto& currentCacheBlock = cache.at(operation.cacheMemorySet * setAssociativityDegree + offset);
       // if cache block is valid
       if (currentCacheBlock.isValid)
       {
+        // if mm block is already in cache
         if (currentCacheBlock.mainMemoryBlock == operation.mainMemoryBlock)
         {
           operation.isHit = true;
@@ -190,6 +198,7 @@ SimulatorOutput simulate(std::vector<MemoryOperation> operations,
       }
       ++offset;
     }
+    // if mm block is not in cache, replace a cache block according to replacement policy
     if (!done)
     {
       int index = -1;
@@ -233,6 +242,7 @@ SimulatorOutput simulate(std::vector<MemoryOperation> operations,
     ++t;
   }
 
+  // calculate best and actual hitrates
   int bestHits = 0;
   int actualHits = 0;
   int totalAccesses = 0;
@@ -273,6 +283,7 @@ SimulatorOutput simulate(std::vector<MemoryOperation> operations,
           bestHits, actualHits, bestHitRate, actualHitRate};
 }
 
+// Function to convert the tag to a binary string of len numBits
 std::string convertTagToBinaryString(const unsigned int tag, const int numBits)
 {
   std::string outputString;
@@ -283,9 +294,11 @@ std::string convertTagToBinaryString(const unsigned int tag, const int numBits)
   return outputString;
 }
 
+// Function to display all results
 void displayResults(const InputData& input, const SimulatorOutput& output)
 {
-  std::cout << "Total address lines required = " << output.totalAddressBits << std::endl
+  std::cout << std::endl
+            << "Total address lines required = " << output.totalAddressBits << std::endl
             << "Number of bits for offset = " << output.offsetBits << std::endl
             << "Number of bits for index = " << output.indexBits << std::endl
             << "Number of bits for tag = " << output.tagBits << std::endl
@@ -391,6 +404,7 @@ void displayResults(const InputData& input, const SimulatorOutput& output)
   }
 }
 
+// main function
 int main()
 {
   States currentState = States::Initialize;
@@ -414,7 +428,7 @@ int main()
         break;
       }
 
-      // State to obtain user input
+        // State to obtain user input
       case States::ReceiveInput:
       {
         inputData = getUserInput();
@@ -425,7 +439,7 @@ int main()
         break;
       }
 
-      // Memory simulation state
+        // Memory simulation state
       case States::Simulate:
       {
         outputData = simulate(operations,
@@ -439,7 +453,7 @@ int main()
         break;
       }
 
-      // State that displays results
+        // State that displays results
       case States::DisplayResults:
       {
         displayResults(inputData, outputData);
@@ -448,11 +462,11 @@ int main()
         break;
       }
 
-      // State that asks to continue
+        // State that asks to continue
       case States::AskToContinue:
       {
         std::string input;
-        std::cout << "Continue? (y = yes, n = no): ";
+        std::cout << "\nContinue? (y = yes, n = no): ";
         std::cin >> input;
 
         if (input == "y")
